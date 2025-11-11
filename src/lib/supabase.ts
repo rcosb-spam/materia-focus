@@ -115,6 +115,35 @@ export type Database = {
           updated_at?: string;
         };
       };
+      study_sessions: {
+        Row: {
+          id: string;
+          cycle_id: string;
+          subject_id: string;
+          hours_studied: number;
+          study_date: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          cycle_id: string;
+          subject_id: string;
+          hours_studied: number;
+          study_date?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          cycle_id?: string;
+          subject_id?: string;
+          hours_studied?: number;
+          study_date?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
     };
   };
 };

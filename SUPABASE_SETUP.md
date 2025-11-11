@@ -61,12 +61,25 @@ CREATE TABLE cycle_allocations (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Tabela para registrar sessões de estudo
+CREATE TABLE study_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  cycle_id UUID NOT NULL REFERENCES study_cycles(id) ON DELETE CASCADE,
+  subject_id UUID NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+  hours_studied NUMERIC NOT NULL CHECK (hours_studied > 0),
+  study_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Índices para melhor performance
 CREATE INDEX idx_subjects_user_id ON subjects(user_id);
 CREATE INDEX idx_lessons_subject_id ON lessons(subject_id);
 CREATE INDEX idx_study_cycles_user_id ON study_cycles(user_id);
 CREATE INDEX idx_cycle_allocations_cycle_id ON cycle_allocations(cycle_id);
 CREATE INDEX idx_cycle_allocations_subject_id ON cycle_allocations(subject_id);
+CREATE INDEX idx_study_sessions_cycle_id ON study_sessions(cycle_id);
+CREATE INDEX idx_study_sessions_subject_id ON study_sessions(subject_id);
 \`\`\`
 
 ### Configurar RLS (Row Level Security)
@@ -77,6 +90,7 @@ ALTER TABLE subjects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lessons ENABLE ROW LEVEL SECURITY;
 ALTER TABLE study_cycles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cycle_allocations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE study_sessions ENABLE ROW LEVEL SECURITY;
 
 -- Políticas para subjects
 CREATE POLICY "Users can view their own subjects"
@@ -193,6 +207,47 @@ CREATE POLICY "Users can delete allocations of their cycles"
       AND study_cycles.user_id = auth.uid()
     )
   );
+
+-- Políticas para study_sessions
+CREATE POLICY "Users can view their own study sessions"
+  ON study_sessions FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM study_cycles
+      WHERE study_cycles.id = study_sessions.cycle_id
+      AND study_cycles.user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can insert their own study sessions"
+  ON study_sessions FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM study_cycles
+      WHERE study_cycles.id = study_sessions.cycle_id
+      AND study_cycles.user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can update their own study sessions"
+  ON study_sessions FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM study_cycles
+      WHERE study_cycles.id = study_sessions.cycle_id
+      AND study_cycles.user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can delete their own study sessions"
+  ON study_sessions FOR DELETE
+  USING (
+    EXISTS (
+      SELECT 1 FROM study_cycles
+      WHERE study_cycles.id = study_sessions.cycle_id
+      AND study_cycles.user_id = auth.uid()
+    )
+  );
 \`\`\`
 
 ### Configurar triggers para updated_at
@@ -218,6 +273,9 @@ CREATE TRIGGER update_study_cycles_updated_at BEFORE UPDATE ON study_cycles
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_cycle_allocations_updated_at BEFORE UPDATE ON cycle_allocations
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_study_sessions_updated_at BEFORE UPDATE ON study_sessions
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 \`\`\`
 
