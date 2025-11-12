@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LogOut, BookOpen } from 'lucide-react';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import SubjectsTab from '@/components/dashboard/SubjectsTab';
 import CycleTab from '@/components/dashboard/CycleTab';
 
@@ -42,6 +43,7 @@ const Dashboard = () => {
           </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground">{user.email}</span>
+            <ThemeToggle />
             <Button variant="outline" size="sm" onClick={signOut}>
               <LogOut className="h-4 w-4 mr-2" />
               Sair
