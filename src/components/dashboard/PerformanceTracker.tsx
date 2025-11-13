@@ -23,6 +23,21 @@ const PerformanceTracker = () => {
   const { data: performances, isLoading } = useQuery({
     queryKey: ['performances', user?.id],
     queryFn: async () => {
+      // First get all notebooks for this user
+      const { data: notebooks, error: notebooksError } = await supabase
+        .from('question_notebooks')
+        .select('id')
+        .eq('user_id', user!.id);
+      
+      if (notebooksError) throw notebooksError;
+      
+      if (!notebooks || notebooks.length === 0) {
+        return [];
+      }
+      
+      const notebookIds = notebooks.map(n => n.id);
+      
+      // Then get performances for those notebooks
       const { data, error } = await supabase
         .from('question_performance')
         .select(`
@@ -31,8 +46,8 @@ const PerformanceTracker = () => {
           exam_subjects(subject_name),
           exam_topics(topic_name, is_relevant)
         `)
-        .eq('question_notebooks.user_id', user!.id)
-        .order('question_notebooks.uploaded_at', { ascending: false });
+        .in('notebook_id', notebookIds)
+        .order('created_at', { ascending: false });
       
       if (error) throw error;
       return data;
