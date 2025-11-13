@@ -8,8 +8,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, FileSpreadsheet } from 'lucide-react';
+import { Upload, FileSpreadsheet, ChevronDown } from 'lucide-react';
 import { parseExamSubjectsCSV } from '@/utils/performanceCsvParser';
 
 const ExamSubjectsManager = () => {
@@ -18,6 +19,7 @@ const ExamSubjectsManager = () => {
   const queryClient = useQueryClient();
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [openSubjects, setOpenSubjects] = useState<Record<string, boolean>>({});
 
   const { data: examSubjects, isLoading } = useQuery({
     queryKey: ['examSubjects', user?.id],
@@ -218,35 +220,51 @@ const ExamSubjectsManager = () => {
           {examSubjects.map((subject) => (
             <Card key={subject.id}>
               <CardHeader>
-                <CardTitle>{subject.subject_name}</CardTitle>
-                <CardDescription>
-                  {subject.exam_topics.length} assuntos cadastrados
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {subject.exam_topics.map((topic: any) => (
-                    <div key={topic.id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={topic.id}
-                        checked={topic.is_relevant}
-                        onCheckedChange={(checked) => {
-                          toggleRelevanceMutation.mutate({
-                            topicId: topic.id,
-                            isRelevant: checked as boolean,
-                          });
-                        }}
-                      />
-                      <label
-                        htmlFor={topic.id}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                      >
-                        {topic.topic_name}
-                      </label>
+                <Collapsible
+                  open={openSubjects[subject.id] !== false}
+                  onOpenChange={(open) => setOpenSubjects({ ...openSubjects, [subject.id]: open })}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>{subject.subject_name}</CardTitle>
+                      <CardDescription>
+                        {subject.exam_topics.length} assuntos cadastrados
+                      </CardDescription>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <ChevronDown className={`h-4 w-4 transition-transform ${openSubjects[subject.id] !== false ? 'rotate-180' : ''}`} />
+                      </Button>
+                    </CollapsibleTrigger>
+                  </div>
+                  <CollapsibleContent>
+                    <CardContent className="pt-4 px-0">
+                      <div className="space-y-3">
+                        {subject.exam_topics.map((topic: any) => (
+                          <div key={topic.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={topic.id}
+                              checked={topic.is_relevant}
+                              onCheckedChange={(checked) => {
+                                toggleRelevanceMutation.mutate({
+                                  topicId: topic.id,
+                                  isRelevant: checked as boolean,
+                                });
+                              }}
+                            />
+                            <label
+                              htmlFor={topic.id}
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                            >
+                              {topic.topic_name}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </CollapsibleContent>
+                </Collapsible>
+              </CardHeader>
             </Card>
           ))}
         </div>

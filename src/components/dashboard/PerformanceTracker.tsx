@@ -7,8 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, BarChart3, TrendingUp } from 'lucide-react';
+import { Upload, BarChart3, TrendingUp, ChevronDown } from 'lucide-react';
 import { parseNotebookPerformanceCSV } from '@/utils/performanceCsvParser';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -19,6 +20,8 @@ const PerformanceTracker = () => {
   const queryClient = useQueryClient();
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [openSubjects, setOpenSubjects] = useState<Record<string, boolean>>({});
+  const [openTopics, setOpenTopics] = useState<Record<string, boolean>>({});
 
   const { data: performances, isLoading } = useQuery({
     queryKey: ['performances', user?.id],
@@ -166,14 +169,22 @@ const PerformanceTracker = () => {
     return <div>Carregando...</div>;
   }
 
-  // Group performances by topic
-  const topicPerformances = new Map<string, any[]>();
+  // Group performances by subject, then by topic
+  const subjectPerformances = new Map<string, Map<string, any[]>>();
   performances?.forEach((perf: any) => {
-    const key = `${perf.exam_subjects.subject_name} - ${perf.exam_topics.topic_name}`;
-    if (!topicPerformances.has(key)) {
-      topicPerformances.set(key, []);
+    const subjectName = perf.exam_subjects.subject_name;
+    const topicName = perf.exam_topics.topic_name;
+    
+    if (!subjectPerformances.has(subjectName)) {
+      subjectPerformances.set(subjectName, new Map());
     }
-    topicPerformances.get(key)!.push(perf);
+    
+    const topicMap = subjectPerformances.get(subjectName)!;
+    if (!topicMap.has(topicName)) {
+      topicMap.set(topicName, []);
+    }
+    
+    topicMap.get(topicName)!.push(perf);
   });
 
   return (
@@ -250,52 +261,103 @@ const PerformanceTracker = () => {
         </Card>
       ) : (
         <div className="grid gap-6">
-          {Array.from(topicPerformances.entries()).map(([topicKey, perfs]) => {
-            // Only show relevant topics
-            if (!perfs[0].exam_topics.is_relevant) return null;
-
+          {Array.from(subjectPerformances.entries()).map(([subjectName, topicMap]) => {
+            const totalRegistros = Array.from(topicMap.values()).reduce((acc, perfs) => acc + perfs.length, 0);
+            
             return (
-              <Card key={topicKey}>
+              <Card key={subjectName}>
                 <CardHeader>
-                  <CardTitle className="text-lg">{topicKey}</CardTitle>
-                  <CardDescription>
-                    {perfs.length} {perfs.length === 1 ? 'registro' : 'registros'}
-                  </CardDescription>
+                  <Collapsible
+                    open={openSubjects[subjectName] !== false}
+                    onOpenChange={(open) => setOpenSubjects({ ...openSubjects, [subjectName]: open })}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle>{subjectName}</CardTitle>
+                        <CardDescription>
+                          {topicMap.size} {topicMap.size === 1 ? 'assunto' : 'assuntos'} • {totalRegistros} {totalRegistros === 1 ? 'registro' : 'registros'}
+                        </CardDescription>
+                      </div>
+                      <CollapsibleTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <ChevronDown className={`h-4 w-4 transition-transform ${openSubjects[subjectName] !== false ? 'rotate-180' : ''}`} />
+                        </Button>
+                      </CollapsibleTrigger>
+                    </div>
+                    
+                    <CollapsibleContent>
+                      <CardContent className="pt-4 px-0 space-y-4">
+                        {Array.from(topicMap.entries()).map(([topicName, perfs]) => {
+                          // Only show relevant topics
+                          if (!perfs[0].exam_topics.is_relevant) return null;
+                          
+                          const topicKey = `${subjectName}-${topicName}`;
+                          
+                          return (
+                            <Collapsible
+                              key={topicKey}
+                              open={openTopics[topicKey] !== false}
+                              onOpenChange={(open) => setOpenTopics({ ...openTopics, [topicKey]: open })}
+                            >
+                              <Card>
+                                <CardHeader>
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <CardTitle className="text-base">{topicName}</CardTitle>
+                                      <CardDescription>
+                                        {perfs.length} {perfs.length === 1 ? 'registro' : 'registros'}
+                                      </CardDescription>
+                                    </div>
+                                    <CollapsibleTrigger asChild>
+                                      <Button variant="ghost" size="sm">
+                                        <ChevronDown className={`h-4 w-4 transition-transform ${openTopics[topicKey] !== false ? 'rotate-180' : ''}`} />
+                                      </Button>
+                                    </CollapsibleTrigger>
+                                  </div>
+                                </CardHeader>
+                                
+                                <CollapsibleContent>
+                                  <CardContent className="space-y-4">
+                                    {perfs.map((perf: any) => {
+                                      const percentage = getPerformancePercentage(
+                                        perf.correct_answers,
+                                        perf.answered_questions
+                                      );
+                                      
+                                      return (
+                                        <div key={perf.id} className="flex items-center justify-between p-4 border rounded-lg">
+                                          <div className="space-y-1">
+                                            <div className="flex items-center gap-2">
+                                              <span className="text-sm font-medium">
+                                                Caderno: {perf.question_notebooks.notebook_id}
+                                              </span>
+                                              <span className="text-xs text-muted-foreground">
+                                                {format(new Date(perf.question_notebooks.uploaded_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                                              </span>
+                                            </div>
+                                            <div className="text-sm text-muted-foreground">
+                                              {perf.answered_questions} de {perf.total_questions} questões resolvidas
+                                            </div>
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            <TrendingUp className={`h-5 w-5 ${getPerformanceColor(percentage)}`} />
+                                            <span className={`text-2xl font-bold ${getPerformanceColor(percentage)}`}>
+                                              {percentage}%
+                                            </span>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </CardContent>
+                                </CollapsibleContent>
+                              </Card>
+                            </Collapsible>
+                          );
+                        })}
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Collapsible>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {perfs.map((perf: any) => {
-                      const percentage = getPerformancePercentage(
-                        perf.correct_answers,
-                        perf.answered_questions
-                      );
-                      
-                      return (
-                        <div key={perf.id} className="flex items-center justify-between p-4 border rounded-lg">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium">
-                                Caderno: {perf.question_notebooks.notebook_id}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {format(new Date(perf.question_notebooks.uploaded_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                              </span>
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              {perf.answered_questions} de {perf.total_questions} questões resolvidas
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <TrendingUp className={`h-5 w-5 ${getPerformanceColor(percentage)}`} />
-                            <span className={`text-2xl font-bold ${getPerformanceColor(percentage)}`}>
-                              {percentage}%
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
               </Card>
             );
           })}
