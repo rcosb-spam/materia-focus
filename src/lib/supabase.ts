@@ -144,6 +144,107 @@ export type Database = {
           updated_at?: string;
         };
       };
+      exam_subjects: {
+        Row: {
+          id: string;
+          user_id: string;
+          subject_name: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          subject_name: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          subject_name?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      exam_topics: {
+        Row: {
+          id: string;
+          exam_subject_id: string;
+          topic_name: string;
+          is_relevant: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          exam_subject_id: string;
+          topic_name: string;
+          is_relevant?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          exam_subject_id?: string;
+          topic_name?: string;
+          is_relevant?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      question_notebooks: {
+        Row: {
+          id: string;
+          user_id: string;
+          notebook_id: string;
+          uploaded_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          notebook_id: string;
+          uploaded_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          notebook_id?: string;
+          uploaded_at?: string;
+        };
+      };
+      question_performance: {
+        Row: {
+          id: string;
+          notebook_id: string;
+          exam_subject_id: string;
+          exam_topic_id: string;
+          correct_answers: number;
+          answered_questions: number;
+          total_questions: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          notebook_id: string;
+          exam_subject_id: string;
+          exam_topic_id: string;
+          correct_answers: number;
+          answered_questions: number;
+          total_questions: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          notebook_id?: string;
+          exam_subject_id?: string;
+          exam_topic_id?: string;
+          correct_answers?: number;
+          answered_questions?: number;
+          total_questions?: number;
+          created_at?: string;
+        };
+      };
     };
   };
 };

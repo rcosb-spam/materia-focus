@@ -7,6 +7,7 @@ import { LogOut, BookOpen } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import SubjectsTab from '@/components/dashboard/SubjectsTab';
 import CycleTab from '@/components/dashboard/CycleTab';
+import PerformanceTab from '@/components/dashboard/PerformanceTab';
 
 const Dashboard = () => {
   const { user, signOut, loading } = useAuth();
@@ -54,9 +55,10 @@ const Dashboard = () => {
 
       <main className="container mx-auto px-4 py-8">
         <Tabs defaultValue="subjects" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 max-w-md">
+          <TabsList className="grid w-full grid-cols-3 max-w-2xl">
             <TabsTrigger value="subjects">Matérias</TabsTrigger>
             <TabsTrigger value="cycle">Ciclo de Estudos</TabsTrigger>
+            <TabsTrigger value="performance">Desempenho</TabsTrigger>
           </TabsList>
           
           <TabsContent value="subjects" className="mt-6">
@@ -65,6 +67,10 @@ const Dashboard = () => {
           
           <TabsContent value="cycle" className="mt-6">
             <CycleTab />
+          </TabsContent>
+          
+          <TabsContent value="performance" className="mt-6">
+            <PerformanceTab />
           </TabsContent>
         </Tabs>
       </main>
