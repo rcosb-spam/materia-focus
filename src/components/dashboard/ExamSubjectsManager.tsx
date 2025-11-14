@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, FileSpreadsheet, ChevronDown } from 'lucide-react';
+import { Upload, FileSpreadsheet, ChevronDown, Trash2 } from 'lucide-react';
 import { parseExamSubjectsCSV } from '@/utils/performanceCsvParser';
 
 const ExamSubjectsManager = () => {
@@ -20,6 +20,7 @@ const ExamSubjectsManager = () => {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [openSubjects, setOpenSubjects] = useState<Record<string, boolean>>({});
+  const [deleteSubjectId, setDeleteSubjectId] = useState<string | null>(null);
 
   const { data: examSubjects, isLoading } = useQuery({
     queryKey: ['examSubjects', user?.id],
@@ -34,6 +35,32 @@ const ExamSubjectsManager = () => {
       return subjects;
     },
     enabled: !!user,
+  });
+
+  const deleteSubjectMutation = useMutation({
+    mutationFn: async (subjectId: string) => {
+      const { error } = await supabase
+        .from('exam_subjects')
+        .delete()
+        .eq('id', subjectId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['examSubjects'] });
+      toast({
+        title: 'Sucesso!',
+        description: 'Matéria deletada com sucesso.',
+      });
+      setDeleteSubjectId(null);
+    },
+    onError: (error: any) => {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao deletar',
+        description: error.message,
+      });
+    },
   });
 
   const uploadMutation = useMutation({
@@ -59,37 +86,51 @@ const ExamSubjectsManager = () => {
       });
 
       // Insert subjects and topics
-      for (const [subjectName, topics] of subjectMap) {
-        // Create or get subject
-        const { data: subject, error: subjectError } = await supabase
+      for (const [subjectName, topics] of subjectMap.entries()) {
+        // Check if subject already exists
+        const { data: existingSubject } = await supabase
           .from('exam_subjects')
-          .upsert({ 
-            user_id: user!.id, 
-            subject_name: subjectName 
-          }, {
-            onConflict: 'user_id,subject_name',
-            ignoreDuplicates: false
-          })
-          .select()
+          .select('id')
+          .eq('user_id', user!.id)
+          .eq('subject_name', subjectName)
           .single();
 
-        if (subjectError) throw subjectError;
+        let subjectId: string;
+
+        if (existingSubject) {
+          subjectId = existingSubject.id;
+        } else {
+          // Create new subject
+          const { data: newSubject, error: subjectError } = await supabase
+            .from('exam_subjects')
+            .insert({ user_id: user!.id, subject_name: subjectName })
+            .select()
+            .single();
+
+          if (subjectError) throw subjectError;
+          subjectId = newSubject.id;
+        }
 
         // Insert topics
-        const topicsToInsert = topics.map(topic => ({
-          exam_subject_id: subject.id,
-          topic_name: topic,
-          is_relevant: true,
-        }));
+        for (const topicName of topics) {
+          // Check if topic already exists
+          const { data: existingTopic } = await supabase
+            .from('exam_topics')
+            .select('id')
+            .eq('exam_subject_id', subjectId)
+            .eq('topic_name', topicName)
+            .single();
 
-        const { error: topicsError } = await supabase
-          .from('exam_topics')
-          .upsert(topicsToInsert, {
-            onConflict: 'exam_subject_id,topic_name',
-            ignoreDuplicates: true
-          });
-
-        if (topicsError) throw topicsError;
+          if (!existingTopic) {
+            await supabase
+              .from('exam_topics')
+              .insert({
+                exam_subject_id: subjectId,
+                topic_name: topicName,
+                is_relevant: false,
+              });
+          }
+        }
       }
     },
     onSuccess: () => {
@@ -162,7 +203,7 @@ const ExamSubjectsManager = () => {
             <DialogHeader>
               <DialogTitle>Importar Matérias e Assuntos</DialogTitle>
               <DialogDescription>
-                Faça upload de um arquivo CSV com as colunas: Materia;Subtopico
+                Faça upload de um arquivo CSV com as colunas: Matéria;Subtópico
               </DialogDescription>
             </DialogHeader>
             
@@ -203,45 +244,60 @@ const ExamSubjectsManager = () => {
           <CardHeader>
             <CardTitle>Nenhuma matéria cadastrada</CardTitle>
             <CardDescription>
-              Importe um arquivo CSV para começar
+              Importe um arquivo CSV para começar a gerenciar suas matérias
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <FileSpreadsheet className="h-12 w-12 text-muted-foreground mb-4" />
               <p className="text-muted-foreground">
-                Clique no botão "Importar CSV" para adicionar suas matérias e assuntos
+                Clique no botão "Importar CSV" para adicionar suas matérias
               </p>
             </div>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-6">
-          {examSubjects.map((subject) => (
-            <Card key={subject.id}>
-              <CardHeader>
-                <Collapsible
-                  open={openSubjects[subject.id] !== false}
-                  onOpenChange={(open) => setOpenSubjects({ ...openSubjects, [subject.id]: open })}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle>{subject.subject_name}</CardTitle>
-                      <CardDescription>
-                        {subject.exam_topics.length} assuntos cadastrados
-                      </CardDescription>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Total: {examSubjects.length} {examSubjects.length === 1 ? 'matéria' : 'matérias'}
+          </p>
+          
+          <div className="grid gap-4">
+            {examSubjects.map((subject: any) => (
+              <Collapsible
+                key={subject.id}
+                open={openSubjects[subject.id] === true}
+                onOpenChange={(open) => setOpenSubjects({ ...openSubjects, [subject.id]: open })}
+              >
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CardTitle>{subject.subject_name}</CardTitle>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDeleteSubjectId(subject.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                      <CollapsibleTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <ChevronDown className={`h-4 w-4 transition-transform ${openSubjects[subject.id] === true ? 'rotate-180' : ''}`} />
+                        </Button>
+                      </CollapsibleTrigger>
                     </div>
-                    <CollapsibleTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <ChevronDown className={`h-4 w-4 transition-transform ${openSubjects[subject.id] !== false ? 'rotate-180' : ''}`} />
-                      </Button>
-                    </CollapsibleTrigger>
-                  </div>
+                    <CardDescription>
+                      {subject.exam_topics.length} {subject.exam_topics.length === 1 ? 'assunto' : 'assuntos'}
+                    </CardDescription>
+                  </CardHeader>
+                  
                   <CollapsibleContent>
-                    <CardContent className="pt-4 px-0">
-                      <div className="space-y-3">
+                    <CardContent>
+                      <div className="space-y-2">
                         {subject.exam_topics.map((topic: any) => (
-                          <div key={topic.id} className="flex items-center space-x-2">
+                          <div key={topic.id} className="flex items-center space-x-2 p-2 rounded hover:bg-accent">
                             <Checkbox
                               id={topic.id}
                               checked={topic.is_relevant}
@@ -252,23 +308,46 @@ const ExamSubjectsManager = () => {
                                 });
                               }}
                             />
-                            <label
+                            <Label
                               htmlFor={topic.id}
-                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                              className="flex-1 cursor-pointer"
                             >
                               {topic.topic_name}
-                            </label>
+                            </Label>
                           </div>
                         ))}
                       </div>
                     </CardContent>
                   </CollapsibleContent>
-                </Collapsible>
-              </CardHeader>
-            </Card>
-          ))}
+                </Card>
+              </Collapsible>
+            ))}
+          </div>
         </div>
       )}
+
+      <Dialog open={!!deleteSubjectId} onOpenChange={() => setDeleteSubjectId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar Exclusão</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja deletar esta matéria? Todos os assuntos e desempenhos associados serão removidos.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setDeleteSubjectId(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteSubjectId && deleteSubjectMutation.mutate(deleteSubjectId)}
+              disabled={deleteSubjectMutation.isPending}
+            >
+              {deleteSubjectMutation.isPending ? 'Deletando...' : 'Deletar'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
