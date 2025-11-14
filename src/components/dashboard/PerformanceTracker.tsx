@@ -9,7 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, BarChart3, TrendingUp, ChevronDown } from 'lucide-react';
+import { Upload, BarChart3, TrendingUp, ChevronDown, Trash2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { parseNotebookPerformanceCSV } from '@/utils/performanceCsvParser';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -22,6 +23,8 @@ const PerformanceTracker = () => {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [openSubjects, setOpenSubjects] = useState<Record<string, boolean>>({});
   const [openTopics, setOpenTopics] = useState<Record<string, boolean>>({});
+  const [deleteNotebookId, setDeleteNotebookId] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<string>('recent');
 
   const { data: performances, isLoading } = useQuery({
     queryKey: ['performances', user?.id],
@@ -56,6 +59,32 @@ const PerformanceTracker = () => {
       return data;
     },
     enabled: !!user,
+  });
+
+  const deleteNotebookMutation = useMutation({
+    mutationFn: async (notebookId: string) => {
+      const { error } = await supabase
+        .from('question_notebooks')
+        .delete()
+        .eq('id', notebookId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['performances'] });
+      toast({
+        title: 'Sucesso!',
+        description: 'Caderno deletado com sucesso.',
+      });
+      setDeleteNotebookId(null);
+    },
+    onError: (error: any) => {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao deletar',
+        description: error.message,
+      });
+    },
   });
 
   const uploadMutation = useMutation({
@@ -187,59 +216,108 @@ const PerformanceTracker = () => {
     topicMap.get(topicName)!.push(perf);
   });
 
+  // Apply sorting to topics
+  const sortedSubjectPerformances = new Map<string, Map<string, any[]>>();
+  subjectPerformances.forEach((topicMap, subjectName) => {
+    const sortedTopics = Array.from(topicMap.entries()).sort(([, perfsA], [, perfsB]) => {
+      // Get most recent performance for each topic
+      const latestA = perfsA.reduce((latest, perf) => 
+        new Date(perf.created_at) > new Date(latest.created_at) ? perf : latest
+      );
+      const latestB = perfsB.reduce((latest, perf) => 
+        new Date(perf.created_at) > new Date(latest.created_at) ? perf : latest
+      );
+
+      if (sortOrder === 'oldest') {
+        // Há mais tempo sem estudar
+        return new Date(latestA.created_at).getTime() - new Date(latestB.created_at).getTime();
+      } else if (sortOrder === 'least-questions') {
+        // Menos questões resolvidas
+        const totalA = perfsA.reduce((sum, p) => sum + p.answered_questions, 0);
+        const totalB = perfsB.reduce((sum, p) => sum + p.answered_questions, 0);
+        return totalA - totalB;
+      } else if (sortOrder === 'worst-performance') {
+        // Menor desempenho na última vez
+        const percentA = getPerformancePercentage(latestA.correct_answers, latestA.answered_questions);
+        const percentB = getPerformancePercentage(latestB.correct_answers, latestB.answered_questions);
+        return percentA - percentB;
+      }
+      // Default: most recent
+      return new Date(latestB.created_at).getTime() - new Date(latestA.created_at).getTime();
+    });
+    
+    sortedSubjectPerformances.set(subjectName, new Map(sortedTopics));
+  });
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h2 className="text-2xl font-bold">Acompanhamento de Desempenho</h2>
           <p className="text-muted-foreground">Importe cadernos de questões e acompanhe seu progresso</p>
         </div>
         
-        <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Upload className="h-4 w-4 mr-2" />
-              Importar Caderno
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Importar Caderno de Questões</DialogTitle>
-              <DialogDescription>
-                Faça upload de um arquivo CSV com as colunas: caderno;Matéria;Subtópico;acertos;resolvidas;total
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="csv">Arquivo CSV</Label>
-                <Input
-                  id="csv"
-                  type="file"
-                  accept=".csv"
-                  onChange={handleFileChange}
-                />
-                {csvFile && (
-                  <p className="text-sm text-muted-foreground">
-                    Arquivo selecionado: {csvFile.name}
-                  </p>
-                )}
+        <div className="flex items-center gap-2">
+          {performances && performances.length > 0 && (
+            <Select value={sortOrder} onValueChange={setSortOrder}>
+              <SelectTrigger className="w-[240px]">
+                <SelectValue placeholder="Ordenar por" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="recent">Mais recente</SelectItem>
+                <SelectItem value="oldest">Há mais tempo sem estudar</SelectItem>
+                <SelectItem value="least-questions">Menos questões resolvidas</SelectItem>
+                <SelectItem value="worst-performance">Pior desempenho</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          
+          <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Upload className="h-4 w-4 mr-2" />
+                Importar Caderno
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Importar Caderno de Questões</DialogTitle>
+                <DialogDescription>
+                  Faça upload de um arquivo CSV com as colunas: caderno;Matéria;Subtópico;acertos;resolvidas;total
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="csv">Arquivo CSV</Label>
+                  <Input
+                    id="csv"
+                    type="file"
+                    accept=".csv"
+                    onChange={handleFileChange}
+                  />
+                  {csvFile && (
+                    <p className="text-sm text-muted-foreground">
+                      Arquivo selecionado: {csvFile.name}
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
-            
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsUploadOpen(false)}>
-                Cancelar
-              </Button>
-              <Button 
-                onClick={() => uploadMutation.mutate()}
-                disabled={!csvFile || uploadMutation.isPending}
-              >
-                {uploadMutation.isPending ? 'Importando...' : 'Importar'}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+              
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setIsUploadOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button 
+                  onClick={() => uploadMutation.mutate()}
+                  disabled={!csvFile || uploadMutation.isPending}
+                >
+                  {uploadMutation.isPending ? 'Importando...' : 'Importar'}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {!performances || performances.length === 0 ? (
@@ -261,14 +339,14 @@ const PerformanceTracker = () => {
         </Card>
       ) : (
         <div className="grid gap-6">
-          {Array.from(subjectPerformances.entries()).map(([subjectName, topicMap]) => {
+          {Array.from(sortedSubjectPerformances.entries()).map(([subjectName, topicMap]) => {
             const totalRegistros = Array.from(topicMap.values()).reduce((acc, perfs) => acc + perfs.length, 0);
             
             return (
               <Card key={subjectName}>
                 <CardHeader>
                   <Collapsible
-                    open={openSubjects[subjectName] !== false}
+                    open={openSubjects[subjectName] === true}
                     onOpenChange={(open) => setOpenSubjects({ ...openSubjects, [subjectName]: open })}
                   >
                     <div className="flex items-center justify-between">
@@ -280,7 +358,7 @@ const PerformanceTracker = () => {
                       </div>
                       <CollapsibleTrigger asChild>
                         <Button variant="ghost" size="sm">
-                          <ChevronDown className={`h-4 w-4 transition-transform ${openSubjects[subjectName] !== false ? 'rotate-180' : ''}`} />
+                          <ChevronDown className={`h-4 w-4 transition-transform ${openSubjects[subjectName] === true ? 'rotate-180' : ''}`} />
                         </Button>
                       </CollapsibleTrigger>
                     </div>
@@ -296,7 +374,7 @@ const PerformanceTracker = () => {
                           return (
                             <Collapsible
                               key={topicKey}
-                              open={openTopics[topicKey] !== false}
+                              open={openTopics[topicKey] === true}
                               onOpenChange={(open) => setOpenTopics({ ...openTopics, [topicKey]: open })}
                             >
                               <Card>
@@ -310,7 +388,7 @@ const PerformanceTracker = () => {
                                     </div>
                                     <CollapsibleTrigger asChild>
                                       <Button variant="ghost" size="sm">
-                                        <ChevronDown className={`h-4 w-4 transition-transform ${openTopics[topicKey] !== false ? 'rotate-180' : ''}`} />
+                                        <ChevronDown className={`h-4 w-4 transition-transform ${openTopics[topicKey] === true ? 'rotate-180' : ''}`} />
                                       </Button>
                                     </CollapsibleTrigger>
                                   </div>
@@ -326,7 +404,7 @@ const PerformanceTracker = () => {
                                       
                                       return (
                                         <div key={perf.id} className="flex items-center justify-between p-4 border rounded-lg">
-                                          <div className="space-y-1">
+                                          <div className="space-y-1 flex-1">
                                             <div className="flex items-center gap-2">
                                               <span className="text-sm font-medium">
                                                 Caderno: {perf.question_notebooks.notebook_id}
@@ -339,11 +417,20 @@ const PerformanceTracker = () => {
                                               {perf.answered_questions} de {perf.total_questions} questões resolvidas
                                             </div>
                                           </div>
-                                          <div className="flex items-center gap-2">
-                                            <TrendingUp className={`h-5 w-5 ${getPerformanceColor(percentage)}`} />
-                                            <span className={`text-2xl font-bold ${getPerformanceColor(percentage)}`}>
-                                              {percentage}%
-                                            </span>
+                                          <div className="flex items-center gap-4">
+                                            <div className="flex items-center gap-2">
+                                              <TrendingUp className={`h-5 w-5 ${getPerformanceColor(percentage)}`} />
+                                              <span className={`text-2xl font-bold ${getPerformanceColor(percentage)}`}>
+                                                {percentage}%
+                                              </span>
+                                            </div>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => setDeleteNotebookId(perf.notebook_id)}
+                                            >
+                                              <Trash2 className="h-4 w-4 text-destructive" />
+                                            </Button>
                                           </div>
                                         </div>
                                       );
@@ -363,6 +450,29 @@ const PerformanceTracker = () => {
           })}
         </div>
       )}
+
+      <Dialog open={!!deleteNotebookId} onOpenChange={() => setDeleteNotebookId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar Exclusão</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja deletar este caderno? Todos os desempenhos associados serão removidos.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setDeleteNotebookId(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteNotebookId && deleteNotebookMutation.mutate(deleteNotebookId)}
+              disabled={deleteNotebookMutation.isPending}
+            >
+              {deleteNotebookMutation.isPending ? 'Deletando...' : 'Deletar'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
