@@ -9,8 +9,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, BarChart3, TrendingUp, ChevronDown, Trash2 } from 'lucide-react';
+import { Upload, BarChart3, TrendingUp, ChevronDown, Trash2, Filter } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
 import { parseNotebookPerformanceCSV } from '@/utils/performanceCsvParser';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -25,6 +27,19 @@ const PerformanceTracker = () => {
   const [openTopics, setOpenTopics] = useState<Record<string, boolean>>({});
   const [deleteNotebookId, setDeleteNotebookId] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<string>('recent');
+  
+  // Filter states
+  const [filterGeneralPerf, setFilterGeneralPerf] = useState(false);
+  const [filterGeneralPerfOperator, setFilterGeneralPerfOperator] = useState<'more' | 'less'>('more');
+  const [filterGeneralPerfValue, setFilterGeneralPerfValue] = useState(70);
+  
+  const [filterLastPerf, setFilterLastPerf] = useState(false);
+  const [filterLastPerfOperator, setFilterLastPerfOperator] = useState<'more' | 'less'>('more');
+  const [filterLastPerfValue, setFilterLastPerfValue] = useState(70);
+  
+  const [filterQuestions, setFilterQuestions] = useState(false);
+  const [filterQuestionsOperator, setFilterQuestionsOperator] = useState<'more' | 'less'>('more');
+  const [filterQuestionsValue, setFilterQuestionsValue] = useState(100);
 
   const { data: performances, isLoading } = useQuery({
     queryKey: ['performances', user?.id],
@@ -216,10 +231,66 @@ const PerformanceTracker = () => {
     topicMap.get(topicName)!.push(perf);
   });
 
-  // Apply sorting to topics
+  // Calculate general performance index for each topic
+  const getTopicGeneralPerformance = (perfs: any[]) => {
+    const totalCorrect = perfs.reduce((sum, p) => sum + p.correct_answers, 0);
+    const totalAnswered = perfs.reduce((sum, p) => sum + p.answered_questions, 0);
+    return totalAnswered > 0 ? Math.round((totalCorrect / totalAnswered) * 100) : 0;
+  };
+
+  const getTopicTotalQuestions = (perfs: any[]) => {
+    return perfs.reduce((sum, p) => sum + p.answered_questions, 0);
+  };
+
+  // Apply filters and sorting to topics
   const sortedSubjectPerformances = new Map<string, Map<string, any[]>>();
   subjectPerformances.forEach((topicMap, subjectName) => {
-    const sortedTopics = Array.from(topicMap.entries()).sort(([, perfsA], [, perfsB]) => {
+    let filteredTopics = Array.from(topicMap.entries());
+    
+    // Apply filters
+    if (filterGeneralPerf || filterLastPerf || filterQuestions) {
+      filteredTopics = filteredTopics.filter(([, perfs]) => {
+        let passes = true;
+        
+        // Filter by general performance
+        if (filterGeneralPerf) {
+          const generalPerf = getTopicGeneralPerformance(perfs);
+          if (filterGeneralPerfOperator === 'more') {
+            passes = passes && generalPerf >= filterGeneralPerfValue;
+          } else {
+            passes = passes && generalPerf <= filterGeneralPerfValue;
+          }
+        }
+        
+        // Filter by last performance
+        if (filterLastPerf) {
+          const latest = perfs.reduce((latest, perf) => 
+            new Date(perf.created_at) > new Date(latest.created_at) ? perf : latest
+          );
+          const lastPerf = getPerformancePercentage(latest.correct_answers, latest.answered_questions);
+          if (filterLastPerfOperator === 'more') {
+            passes = passes && lastPerf >= filterLastPerfValue;
+          } else {
+            passes = passes && lastPerf <= filterLastPerfValue;
+          }
+        }
+        
+        // Filter by questions count
+        if (filterQuestions) {
+          const totalQuestions = getTopicTotalQuestions(perfs);
+          if (filterQuestionsOperator === 'more') {
+            passes = passes && totalQuestions >= filterQuestionsValue;
+          } else {
+            passes = passes && totalQuestions <= filterQuestionsValue;
+          }
+        }
+        
+        return passes;
+      });
+    }
+    
+    // Apply sorting
+    const sortedTopics = filteredTopics.sort(([, perfsA], [, perfsB]) => {
       // Get most recent performance for each topic
       const latestA = perfsA.reduce((latest, perf) => 
         new Date(perf.created_at) > new Date(latest.created_at) ? perf : latest
@@ -233,8 +304,8 @@ const PerformanceTracker = () => {
         return new Date(latestA.created_at).getTime() - new Date(latestB.created_at).getTime();
       } else if (sortOrder === 'least-questions') {
         // Menos questões resolvidas
-        const totalA = perfsA.reduce((sum, p) => sum + p.answered_questions, 0);
-        const totalB = perfsB.reduce((sum, p) => sum + p.answered_questions, 0);
+        const totalA = getTopicTotalQuestions(perfsA);
+        const totalB = getTopicTotalQuestions(perfsB);
         return totalA - totalB;
       } else if (sortOrder === 'worst-performance') {
         // Menor desempenho na última vez
@@ -246,7 +317,9 @@ const PerformanceTracker = () => {
       return new Date(latestB.created_at).getTime() - new Date(latestA.created_at).getTime();
     });
     
-    sortedSubjectPerformances.set(subjectName, new Map(sortedTopics));
+    if (sortedTopics.length > 0) {
+      sortedSubjectPerformances.set(subjectName, new Map(sortedTopics));
+    }
   });
 
   return (
@@ -259,17 +332,149 @@ const PerformanceTracker = () => {
         
         <div className="flex items-center gap-2">
           {performances && performances.length > 0 && (
-            <Select value={sortOrder} onValueChange={setSortOrder}>
-              <SelectTrigger className="w-[240px]">
-                <SelectValue placeholder="Ordenar por" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="recent">Mais recente</SelectItem>
-                <SelectItem value="oldest">Há mais tempo sem estudar</SelectItem>
-                <SelectItem value="least-questions">Menos questões resolvidas</SelectItem>
-                <SelectItem value="worst-performance">Pior desempenho</SelectItem>
-              </SelectContent>
-            </Select>
+            <>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline">
+                    <Filter className="h-4 w-4 mr-2" />
+                    Filtros
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80">
+                  <div className="space-y-4">
+                    <h4 className="font-medium">Filtros de Desempenho</h4>
+                    
+                    {/* Filter by general performance */}
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="filter-general" 
+                          checked={filterGeneralPerf}
+                          onCheckedChange={(checked) => setFilterGeneralPerf(checked as boolean)}
+                        />
+                        <Label htmlFor="filter-general" className="text-sm font-normal">
+                          Índice de acerto geral
+                        </Label>
+                      </div>
+                      {filterGeneralPerf && (
+                        <div className="ml-6 space-y-2">
+                          <Select 
+                            value={filterGeneralPerfOperator} 
+                            onValueChange={(value: 'more' | 'less') => setFilterGeneralPerfOperator(value)}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="more">Maior ou igual a</SelectItem>
+                              <SelectItem value="less">Menor ou igual a</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <div className="flex items-center gap-2">
+                            <Input 
+                              type="number" 
+                              min="0" 
+                              max="100"
+                              value={filterGeneralPerfValue}
+                              onChange={(e) => setFilterGeneralPerfValue(Number(e.target.value))}
+                            />
+                            <span className="text-sm">%</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Filter by last performance */}
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="filter-last" 
+                          checked={filterLastPerf}
+                          onCheckedChange={(checked) => setFilterLastPerf(checked as boolean)}
+                        />
+                        <Label htmlFor="filter-last" className="text-sm font-normal">
+                          Desempenho no último caderno
+                        </Label>
+                      </div>
+                      {filterLastPerf && (
+                        <div className="ml-6 space-y-2">
+                          <Select 
+                            value={filterLastPerfOperator} 
+                            onValueChange={(value: 'more' | 'less') => setFilterLastPerfOperator(value)}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="more">Maior ou igual a</SelectItem>
+                              <SelectItem value="less">Menor ou igual a</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <div className="flex items-center gap-2">
+                            <Input 
+                              type="number" 
+                              min="0" 
+                              max="100"
+                              value={filterLastPerfValue}
+                              onChange={(e) => setFilterLastPerfValue(Number(e.target.value))}
+                            />
+                            <span className="text-sm">%</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Filter by questions count */}
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="filter-questions" 
+                          checked={filterQuestions}
+                          onCheckedChange={(checked) => setFilterQuestions(checked as boolean)}
+                        />
+                        <Label htmlFor="filter-questions" className="text-sm font-normal">
+                          Quantidade de questões
+                        </Label>
+                      </div>
+                      {filterQuestions && (
+                        <div className="ml-6 space-y-2">
+                          <Select 
+                            value={filterQuestionsOperator} 
+                            onValueChange={(value: 'more' | 'less') => setFilterQuestionsOperator(value)}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="more">Maior ou igual a</SelectItem>
+                              <SelectItem value="less">Menor ou igual a</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Input 
+                            type="number" 
+                            min="0"
+                            value={filterQuestionsValue}
+                            onChange={(e) => setFilterQuestionsValue(Number(e.target.value))}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+              
+              <Select value={sortOrder} onValueChange={setSortOrder}>
+                <SelectTrigger className="w-[240px]">
+                  <SelectValue placeholder="Ordenar por" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="recent">Mais recente</SelectItem>
+                  <SelectItem value="oldest">Há mais tempo sem estudar</SelectItem>
+                  <SelectItem value="least-questions">Menos questões resolvidas</SelectItem>
+                  <SelectItem value="worst-performance">Pior desempenho</SelectItem>
+                </SelectContent>
+              </Select>
+            </>
           )}
           
           <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
@@ -379,19 +584,24 @@ const PerformanceTracker = () => {
                             >
                               <Card>
                                 <CardHeader>
-                                  <div className="flex items-center justify-between">
-                                    <div>
-                                      <CardTitle className="text-base">{topicName}</CardTitle>
-                                      <CardDescription>
-                                        {perfs.length} {perfs.length === 1 ? 'registro' : 'registros'}
-                                      </CardDescription>
-                                    </div>
-                                    <CollapsibleTrigger asChild>
-                                      <Button variant="ghost" size="sm">
-                                        <ChevronDown className={`h-4 w-4 transition-transform ${openTopics[topicKey] === true ? 'rotate-180' : ''}`} />
-                                      </Button>
-                                    </CollapsibleTrigger>
-                                  </div>
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3">
+                                  <CardTitle className="text-base">{topicName}</CardTitle>
+                                  <span className={`text-sm font-semibold ${getPerformanceColor(getTopicGeneralPerformance(perfs))}`}>
+                                    {getTopicGeneralPerformance(perfs)}%
+                                  </span>
+                                </div>
+                                <CardDescription>
+                                  {perfs.length} {perfs.length === 1 ? 'registro' : 'registros'} • {getTopicTotalQuestions(perfs)} questões
+                                </CardDescription>
+                              </div>
+                              <CollapsibleTrigger asChild>
+                                <Button variant="ghost" size="sm">
+                                  <ChevronDown className={`h-4 w-4 transition-transform ${openTopics[topicKey] === true ? 'rotate-180' : ''}`} />
+                                </Button>
+                              </CollapsibleTrigger>
+                            </div>
                                 </CardHeader>
                                 
                                 <CollapsibleContent>
