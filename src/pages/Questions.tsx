@@ -77,7 +77,6 @@ const Questions = () => {
             <TabsList className="grid w-full grid-cols-3 max-w-lg">
               <TabsTrigger value="performance">Desempenho</TabsTrigger>
               <TabsTrigger value="cycle">Ciclo Questões</TabsTrigger>
-              <TabsTrigger value="subjects">Matérias da Prova</TabsTrigger>
             </TabsList>
             
             <TabsContent value="performance" className="mt-6">
@@ -87,10 +86,7 @@ const Questions = () => {
             <TabsContent value="cycle" className="mt-6">
               <QuestionCycleTab />
             </TabsContent>
-            
-            <TabsContent value="subjects" className="mt-6">
-              <ExamSubjectsManager />
-            </TabsContent>
+          
           </Tabs>
         </div>
       </main>
