@@ -9,7 +9,7 @@ All colors MUST be HSL.
 /* Atualização no src/index.css */
 @layer base {
   :root {
-    /* Light mode - mais suave */
+    /* Light mode - mantido original */
     --background: 210 40% 98%;
     --foreground: 222 47% 15%;
     --card: 0 0% 100%;
@@ -45,37 +45,49 @@ All colors MUST be HSL.
   }
 
   .dark {
-    /* Dark mode - moderno e elegante (AGORA É O PADRÃO) */
-    --background: 222 47% 6%;
-    --foreground: 210 40% 98%;
-    --card: 222 47% 8%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 47% 8%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 239 84% 67%;
+    /* Dark Mode - Tons de Cinza Elegantes */
+    --background: 0 0% 7%;          /* Cinza quase preto - fundo principal */
+    --foreground: 0 0% 98%;         /* Branco puro - texto principal */
+    
+    --card: 0 0% 10%;              /* Cinza escuro - cards */
+    --card-foreground: 0 0% 98%;   /* Texto em cards */
+    
+    --popover: 0 0% 10%;           /* Popovers */
+    --popover-foreground: 0 0% 98%;
+    
+    --primary: 239 84% 67%;        /* Azul original para destaque */
     --primary-foreground: 0 0% 100%;
-    --secondary: 222 47% 12%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 222 47% 12%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 142 76% 36%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 84% 60%;
+    
+    --secondary: 0 0% 15%;         /* Cinza médio - elementos secundários */
+    --secondary-foreground: 0 0% 98%;
+    
+    --muted: 0 0% 15%;             /* Áreas muted */
+    --muted-foreground: 0 0% 65%;  /* Texto secundário */
+    
+    --accent: 0 0% 20%;            /* Destaques em cinza */
+    --accent-foreground: 0 0% 98%;
+    
+    --destructive: 0 84% 60%;      /* Vermelho para ações destrutivas */
     --destructive-foreground: 0 0% 100%;
-    --border: 222 47% 15%;
-    --input: 222 47% 15%;
-    --ring: 239 84% 67%;
-    --warning: 38 92% 50%;
+    
+    --border: 0 0% 18%;            /* Bordas em cinza */
+    --input: 0 0% 18%;             /* Inputs */
+    --ring: 239 84% 67%;           /* Anel de foco - azul para contraste */
+    
+    --warning: 38 92% 50%;         /* Laranja para avisos */
     --warning-foreground: 0 0% 100%;
-    --success: 142 76% 36%;
+    
+    --success: 142 76% 36%;        /* Verde para sucesso */
     --success-foreground: 0 0% 100%;
-    --sidebar-background: 222 47% 8%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 239 84% 67%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 47% 12%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 222 47% 15%;
+
+    /* Sidebar em tons de cinza harmonizados */
+    --sidebar-background: 0 0% 9%;
+    --sidebar-foreground: 0 0% 85%;
+    --sidebar-primary: 0 0% 98%;
+    --sidebar-primary-foreground: 0 0% 9%;
+    --sidebar-accent: 0 0% 14%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 0 0% 16%;
     --sidebar-ring: 239 84% 67%;
   }
 }
@@ -100,37 +112,94 @@ All colors MUST be HSL.
   }
 }
 
-.dark ::-webkit-scrollbar {
-  width: 8px;
-}
+/* Estilos customizados para o tema cinza */
+.dark {
+  /* Gradientes sutis em cinza */
+  .bg-gradient-to-br {
+    background-image: linear-gradient(
+      135deg,
+      hsl(0 0% 7%) 0%,
+      hsl(0 0% 9%) 50%,
+      hsl(0 0% 11%) 100%
+    );
+  }
 
-.dark ::-webkit-scrollbar-track {
-  @apply bg-secondary;
-}
+  /* Melhor contraste para cards */
+  .card {
+    @apply shadow-xl shadow-black/30 border-border/50;
+  }
 
-.dark ::-webkit-scrollbar-thumb {
-  @apply bg-border rounded-full;
-}
+  /* Inputs com melhor visibilidade */
+  .input, .textarea, .select {
+    @apply bg-card border-border/70 focus:border-primary/50 focus:ring-primary/20;
+  }
 
-.dark ::-webkit-scrollbar-thumb:hover {
-  @apply bg-muted-foreground/50;
-}
+  /* Botões com melhor contraste */
+  .button {
+    @apply transition-all duration-200;
+  }
 
-/* Melhorias de contraste para dark mode */
-.dark .card {
-  @apply shadow-lg shadow-black/20;
-}
+  .button[data-variant="outline"] {
+    @apply border-border/70 bg-transparent hover:bg-accent hover:border-accent;
+  }
 
-.dark .border-border {
-  border-color: hsl(var(--border) / 0.3);
-}
+  .button[data-variant="secondary"] {
+    @apply bg-secondary text-secondary-foreground hover:bg-secondary/80;
+  }
 
-/* Efeitos de gradiente sutis */
-.dark .bg-gradient-to-br {
-  background-image: linear-gradient(
-    135deg,
-    hsl(var(--background)) 0%,
-    hsl(var(--background) / 0.95) 50%,
-    hsl(var(--card)) 100%
-  );
+  /* Estados hover refinados */
+  .hover\\:bg-accent:hover {
+    background-color: hsl(var(--accent));
+  }
+
+  .hover\\:bg-primary\\/10:hover {
+    background-color: hsl(var(--primary) / 0.1);
+  }
+
+  /* Scrollbar customizada em cinza */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(0 0% 10%);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(0 0% 25%);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(0 0% 35%);
+  }
+
+  /* Melhorias para tabelas e listas */
+  .table {
+    @apply border-border/50;
+  }
+
+  .table th {
+    @apply bg-secondary border-border;
+  }
+
+  .table td {
+    @apply border-border/30;
+  }
+
+  /* Loading states */
+  .animate-spin {
+    border-color: hsl(var(--primary) / 0.3);
+    border-top-color: hsl(var(--primary));
+  }
+
+  /* Badges e tags */
+  .badge {
+    @apply border-border/50;
+  }
+
+  /* Alertas e notificações */
+  .alert {
+    @apply border-border/50;
+  }
 }
