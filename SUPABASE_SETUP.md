@@ -279,6 +279,170 @@ CREATE TRIGGER update_study_sessions_updated_at BEFORE UPDATE ON study_sessions
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 \`\`\`
 
+-- =============================================
+-- TABELAS PARA CICLO DE QUESTÕES
+-- =============================================
+
+-- Tabela para ciclos de questões
+CREATE TABLE question_cycles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  total_hours NUMERIC NOT NULL,
+  target_percentage INTEGER NOT NULL,
+  min_questions INTEGER NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Tabela de alocações do ciclo de questões
+CREATE TABLE question_cycle_allocations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  cycle_id UUID NOT NULL REFERENCES question_cycles(id) ON DELETE CASCADE,
+  subject_id UUID NOT NULL REFERENCES exam_subjects(id) ON DELETE CASCADE,
+  allocated_hours NUMERIC NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Tabela para sessões de estudo do ciclo de questões
+CREATE TABLE question_study_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  cycle_id UUID NOT NULL REFERENCES question_cycles(id) ON DELETE CASCADE,
+  subject_id UUID NOT NULL REFERENCES exam_subjects(id) ON DELETE CASCADE,
+  hours_studied NUMERIC NOT NULL CHECK (hours_studied > 0),
+  study_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Índices para melhor performance
+CREATE INDEX idx_question_cycles_user_id ON question_cycles(user_id);
+CREATE INDEX idx_question_cycle_allocations_cycle_id ON question_cycle_allocations(cycle_id);
+CREATE INDEX idx_question_cycle_allocations_subject_id ON question_cycle_allocations(subject_id);
+CREATE INDEX idx_question_study_sessions_cycle_id ON question_study_sessions(cycle_id);
+CREATE INDEX idx_question_study_sessions_subject_id ON question_study_sessions(subject_id);
+
+-- =============================================
+-- RLS (Row Level Security) PARA CICLO DE QUESTÕES
+-- =============================================
+
+-- Habilitar RLS
+ALTER TABLE question_cycles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE question_cycle_allocations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE question_study_sessions ENABLE ROW LEVEL SECURITY;
+
+-- Políticas para question_cycles
+CREATE POLICY "Users can view their own question cycles"
+  ON question_cycles FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own question cycles"
+  ON question_cycles FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own question cycles"
+  ON question_cycles FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own question cycles"
+  ON question_cycles FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- Políticas para question_cycle_allocations
+CREATE POLICY "Users can view allocations of their question cycles"
+  ON question_cycle_allocations FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM question_cycles
+      WHERE question_cycles.id = question_cycle_allocations.cycle_id
+      AND question_cycles.user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can insert allocations to their question cycles"
+  ON question_cycle_allocations FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM question_cycles
+      WHERE question_cycles.id = question_cycle_allocations.cycle_id
+      AND question_cycles.user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can update allocations of their question cycles"
+  ON question_cycle_allocations FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM question_cycles
+      WHERE question_cycles.id = question_cycle_allocations.cycle_id
+      AND question_cycles.user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can delete allocations of their question cycles"
+  ON question_cycle_allocations FOR DELETE
+  USING (
+    EXISTS (
+      SELECT 1 FROM question_cycles
+      WHERE question_cycles.id = question_cycle_allocations.cycle_id
+      AND question_cycles.user_id = auth.uid()
+    )
+  );
+
+-- Políticas para question_study_sessions
+CREATE POLICY "Users can view their own question study sessions"
+  ON question_study_sessions FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM question_cycles
+      WHERE question_cycles.id = question_study_sessions.cycle_id
+      AND question_cycles.user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can insert their own question study sessions"
+  ON question_study_sessions FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM question_cycles
+      WHERE question_cycles.id = question_study_sessions.cycle_id
+      AND question_cycles.user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can update their own question study sessions"
+  ON question_study_sessions FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM question_cycles
+      WHERE question_cycles.id = question_study_sessions.cycle_id
+      AND question_cycles.user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can delete their own question study sessions"
+  ON question_study_sessions FOR DELETE
+  USING (
+    EXISTS (
+      SELECT 1 FROM question_cycles
+      WHERE question_cycles.id = question_study_sessions.cycle_id
+      AND question_cycles.user_id = auth.uid()
+    )
+  );
+
+-- =============================================
+-- TRIGGERS PARA CICLO DE QUESTÕES
+-- =============================================
+
+CREATE TRIGGER update_question_cycles_updated_at BEFORE UPDATE ON question_cycles
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_question_cycle_allocations_updated_at BEFORE UPDATE ON question_cycle_allocations
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_question_study_sessions_updated_at BEFORE UPDATE ON question_study_sessions
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 ## 4. Configurar autenticação
 
 No painel do Supabase, em Authentication > Providers:

@@ -1,3 +1,4 @@
+// src/pages/Questions.tsx (atualizado)
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -6,6 +7,9 @@ import { LogOut, BookOpen, FileText, HelpCircle } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { NavLink } from '@/components/NavLink';
 import PerformanceTab from '@/components/dashboard/PerformanceTab';
+import ExamSubjectsManager from '@/components/dashboard/ExamSubjectsManager';
+import QuestionCycleTab from '@/components/dashboard/QuestionCycleTab';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const Questions = () => {
   const { user, signOut, loading } = useAuth();
@@ -66,10 +70,28 @@ const Questions = () => {
         <div className="space-y-6">
           <div>
             <h2 className="text-2xl font-bold">Questões</h2>
-            <p className="text-muted-foreground">Acompanhe seu desempenho em questões</p>
+            <p className="text-muted-foreground">Acompanhe seu desempenho e crie ciclos de estudo</p>
           </div>
 
-          <PerformanceTab />
+          <Tabs defaultValue="performance" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 max-w-lg">
+              <TabsTrigger value="performance">Desempenho</TabsTrigger>
+              <TabsTrigger value="cycle">Ciclo Questões</TabsTrigger>
+              <TabsTrigger value="subjects">Matérias da Prova</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="performance" className="mt-6">
+              <PerformanceTab />
+            </TabsContent>
+            
+            <TabsContent value="cycle" className="mt-6">
+              <QuestionCycleTab />
+            </TabsContent>
+            
+            <TabsContent value="subjects" className="mt-6">
+              <ExamSubjectsManager />
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
     </div>
