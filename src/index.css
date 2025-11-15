@@ -152,7 +152,7 @@ All colors MUST be HSL.
     background-color: hsl(var(--accent));
   }
 
-  .hover\\:bg-primary\\/10:hover {
+  .hover\\:bg-primary\\10:hover {
     background-color: hsl(var(--primary) / 0.1);
   }
 
