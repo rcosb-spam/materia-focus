@@ -28,7 +28,7 @@ const CycleTab = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold">Ciclo de Estudos</h2>
+        <h2 className="text-2xl font-bold">Ciclo PDFs</h2>
         <p className="text-muted-foreground">Configure e visualize a distribuição de horas</p>
       </div>
 

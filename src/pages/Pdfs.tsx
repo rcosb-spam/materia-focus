@@ -5,16 +5,17 @@ import { Button } from '@/components/ui/button';
 import { LogOut, BookOpen, FileText, HelpCircle } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { NavLink } from '@/components/NavLink';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import SubjectsTab from '@/components/dashboard/SubjectsTab';
+import CycleTab from '@/components/dashboard/CycleTab';
 
-const Dashboard = () => {
+const Pdfs = () => {
   const { user, signOut, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (!loading && !user) {
       navigate('/auth');
-    } else if (!loading && user) {
-      navigate('/pdfs');
     }
   }, [user, loading, navigate]);
 
@@ -63,9 +64,31 @@ const Dashboard = () => {
             Questões
           </NavLink>
         </nav>
+
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-2xl font-bold">PDFs</h2>
+            <p className="text-muted-foreground">Gerencie suas matérias e ciclos de estudo</p>
+          </div>
+
+          <Tabs defaultValue="subjects" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 max-w-md">
+              <TabsTrigger value="subjects">Matérias</TabsTrigger>
+              <TabsTrigger value="cycle">Ciclo PDFs</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="subjects" className="mt-6">
+              <SubjectsTab />
+            </TabsContent>
+            
+            <TabsContent value="cycle" className="mt-6">
+              <CycleTab />
+            </TabsContent>
+          </Tabs>
+        </div>
       </main>
     </div>
   );
 };
 
-export default Dashboard;
+export default Pdfs;
