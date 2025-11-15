@@ -74,7 +74,7 @@ const Questions = () => {
           </div>
 
           <Tabs defaultValue="performance" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 max-w-lg">
+            <TabsList className="grid w-full grid-cols-2 max-w-lg">
               <TabsTrigger value="performance">Desempenho</TabsTrigger>
               <TabsTrigger value="cycle">Ciclo Questões</TabsTrigger>
             </TabsList>
