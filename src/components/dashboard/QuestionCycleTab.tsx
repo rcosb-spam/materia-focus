@@ -1,4 +1,4 @@
-// src/components/dashboard/QuestionCycleTab.tsx
+// src/components/dashboard/QuestionCycleTab.tsx (atualizado)
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import CreateQuestionCycleTab from './CreateQuestionCycleTab';
 import TrackQuestionCycleTab from './TrackQuestionCycleTab';
