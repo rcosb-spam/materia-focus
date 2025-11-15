@@ -18,33 +18,45 @@ interface Subject {
   created_at: string;
 }
 
+interface Lesson {
+  id: string;
+  name: string;
+  description: string;
+  is_studied: boolean;
+  subject_id: string;
+  created_at: string;
+}
+
 interface SubjectCardProps {
   subject: Subject;
 }
 
-const SubjectCard = ({ subject }: SubjectCardProps) => {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [isOpen, setIsOpen] = useState(false);
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [editName, setEditName] = useState(subject.name);
-  const [editingLesson, setEditingLesson] = useState<string | null>(null);
-  const [editLessonName, setEditLessonName] = useState('');
-  const [editLessonDesc, setEditLessonDesc] = useState('');
+  const SubjectCard = ({ subject }: SubjectCardProps) => {
+    const { toast } = useToast();
+    const queryClient = useQueryClient();
+    const [isOpen, setIsOpen] = useState(false);
+    const [isEditOpen, setIsEditOpen] = useState(false);
+    const [editName, setEditName] = useState(subject.name);
+    const [editingLesson, setEditingLesson] = useState<string | null>(null);
+    const [editLessonName, setEditLessonName] = useState('');
+    const [editLessonDesc, setEditLessonDesc] = useState('');
 
-  const { data: lessons, isLoading } = useQuery({
-    queryKey: ['lessons', subject.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('lessons')
-        .select('*')
-        .eq('subject_id', subject.id)
-        .order('name');
-      
-      if (error) throw error;
-      return data;
-    },
-  });
+    const { data: lessons, isLoading } = useQuery({
+      queryKey: ['lessons', subject.id],
+      queryFn: async (): Promise<Lesson[]> => {
+        const { data, error } = await supabase
+          .from('lessons')
+          .select('*')
+          .eq('subject_id', subject.id)
+          .order('created_at', { ascending: true });
+        
+        if (error) {
+          console.error('Error fetching lessons:', error);
+          throw error;
+        }
+        return data || [];
+      },
+    });
 
   const updateSubjectMutation = useMutation({
     mutationFn: async (name: string) => {
@@ -138,16 +150,19 @@ const SubjectCard = ({ subject }: SubjectCardProps) => {
   const totalCount = lessons?.length || 0;
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="group hover:shadow-lg transition-all duration-300 border-border/50">
+      <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <CardTitle className="flex items-center gap-2">
-              <BookOpen className="h-5 w-5 text-primary" />
-              {subject.name}
-            </CardTitle>
-            <CardDescription className="mt-2">
-              {unstudiedCount} de {totalCount} aulas pendentes
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
+                <BookOpen className="h-5 w-5 text-primary" />
+              </div>
+              <CardTitle className="text-lg">{subject.name}</CardTitle>
+            </div>
+            <CardDescription className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${unstudiedCount > 0 ? 'bg-warning' : 'bg-success'}`} />
+              {unstudiedCount} de {totalCount} aulas {unstudiedCount > 0 ? 'pendentes' : 'concluídas'}
             </CardDescription>
           </div>
           <div className="flex gap-2">
@@ -187,30 +202,46 @@ const SubjectCard = ({ subject }: SubjectCardProps) => {
         </div>
       </CardHeader>
       <CardContent>
-        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <Collapsible open={isOpen} onOpenChange={setIsOpen} className="space-y-4">
           <CollapsibleTrigger asChild>
-            <Button variant="outline" className="w-full">
-              {isOpen ? <ChevronUp className="h-4 w-4 mr-2" /> : <ChevronDown className="h-4 w-4 mr-2" />}
-              {isOpen ? 'Ocultar Aulas' : 'Ver Aulas'}
+            <Button variant="outline" className="w-full gap-2 hover:bg-accent/50 transition-colors">
+              {isOpen ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+              {isOpen ? 'Ocultar Aulas' : `Ver Aulas (${totalCount})`}
             </Button>
           </CollapsibleTrigger>
-          <CollapsibleContent className="mt-4 space-y-2">
+          <CollapsibleContent className="CollapsibleContent space-y-3">
             {isLoading ? (
-              <p className="text-sm text-muted-foreground">Carregando...</p>
+              <div className="text-center py-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
+                <p className="text-sm text-muted-foreground mt-2">Carregando aulas...</p>
+              </div>
             ) : lessons && lessons.length > 0 ? (
               lessons.map((lesson) => (
-                <div key={lesson.id} className="border rounded-lg p-3 space-y-2">
+                <div 
+                  key={lesson.id} 
+                  className={`border rounded-xl p-4 transition-all duration-200 ${
+                    lesson.is_studied 
+                      ? 'bg-muted/30 border-muted' 
+                      : 'bg-card border-border hover:border-primary/30'
+                  }`}
+                >
                   {editingLesson === lesson.id ? (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <Input
                         value={editLessonName}
                         onChange={(e) => setEditLessonName(e.target.value)}
                         placeholder="Nome da aula"
+                        className="bg-background"
                       />
                       <Input
                         value={editLessonDesc}
                         onChange={(e) => setEditLessonDesc(e.target.value)}
                         placeholder="Descrição"
+                        className="bg-background"
                       />
                       <div className="flex gap-2">
                         <Button
@@ -225,59 +256,71 @@ const SubjectCard = ({ subject }: SubjectCardProps) => {
                         >
                           Salvar
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => setEditingLesson(null)}>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => setEditingLesson(null)}
+                        >
                           Cancelar
                         </Button>
                       </div>
                     </div>
                   ) : (
-                    <>
-                      <div className="flex items-start gap-3">
-                        <Checkbox
-                          checked={lesson.is_studied}
-                          onCheckedChange={() =>
-                            toggleLessonMutation.mutate({
-                              lessonId: lesson.id,
-                              isStudied: lesson.is_studied,
-                            })
-                          }
-                          className="mt-1"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className={`font-medium ${lesson.is_studied ? 'line-through text-muted-foreground' : ''}`}>
-                            {lesson.name}
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        checked={lesson.is_studied}
+                        onCheckedChange={() =>
+                          toggleLessonMutation.mutate({
+                            lessonId: lesson.id,
+                            isStudied: lesson.is_studied,
+                          })
+                        }
+                        className="mt-1"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className={`font-medium ${lesson.is_studied ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                          {lesson.name}
+                        </p>
+                        {lesson.description && (
+                          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                            {lesson.description}
                           </p>
-                          <p className="text-sm text-muted-foreground line-clamp-2">{lesson.description}</p>
-                        </div>
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => {
-                              setEditingLesson(lesson.id);
-                              setEditLessonName(lesson.name);
-                              setEditLessonDesc(lesson.description);
-                            }}
-                          >
-                            <Edit2 className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => deleteLessonMutation.mutate(lesson.id)}
-                          >
-                            <Trash2 className="h-3 w-3 text-destructive" />
-                          </Button>
-                        </div>
+                        )}
                       </div>
-                    </>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 hover:bg-primary/10"
+                          onClick={() => {
+                            setEditingLesson(lesson.id);
+                            setEditLessonName(lesson.name);
+                            setEditLessonDesc(lesson.description || '');
+                          }}
+                        >
+                          <Edit2 className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 hover:bg-destructive/10"
+                          onClick={() => deleteLessonMutation.mutate(lesson.id)}
+                        >
+                          <Trash2 className="h-3 w-3 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
                   )}
                 </div>
               ))
             ) : (
-              <p className="text-sm text-muted-foreground">Nenhuma aula cadastrada</p>
+              <div className="text-center py-6 border-2 border-dashed border-border rounded-lg">
+                <BookOpen className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">Nenhuma aula cadastrada</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Adicione aulas para começar a estudar
+                </p>
+              </div>
             )}
           </CollapsibleContent>
         </Collapsible>
