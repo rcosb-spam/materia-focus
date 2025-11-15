@@ -6,19 +6,21 @@
 All colors MUST be HSL.
 */
 
+/* Atualização no src/index.css */
 @layer base {
   :root {
+    /* Light mode - mais suave */
     --background: 210 40% 98%;
-    --foreground: 222 47% 11%;
+    --foreground: 222 47% 15%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 222 47% 15%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 222 47% 15%;
     --primary: 239 84% 67%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 214 32% 91%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 214 32% 91%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 15%;
+    --muted: 210 40% 96%;
     --muted-foreground: 215 16% 47%;
     --accent: 142 76% 36%;
     --accent-foreground: 0 0% 100%;
@@ -27,7 +29,7 @@ All colors MUST be HSL.
     --border: 214 32% 91%;
     --input: 214 32% 91%;
     --ring: 239 84% 67%;
-    --radius: 0.5rem;
+    --radius: 0.75rem;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
     --success: 142 76% 36%;
@@ -43,37 +45,38 @@ All colors MUST be HSL.
   }
 
   .dark {
-    --background: 222 47% 11%;
+    /* Dark mode - moderno e elegante (AGORA É O PADRÃO) */
+    --background: 222 47% 6%;
     --foreground: 210 40% 98%;
-    --card: 217 33% 17%;
+    --card: 222 47% 8%;
     --card-foreground: 210 40% 98%;
-    --popover: 217 33% 17%;
+    --popover: 222 47% 8%;
     --popover-foreground: 210 40% 98%;
     --primary: 239 84% 67%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 217 33% 17%;
+    --secondary: 222 47% 12%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 223 47% 11%;
+    --muted: 222 47% 12%;
     --muted-foreground: 215 20% 65%;
     --accent: 142 76% 36%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 62% 30%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
+    --border: 222 47% 15%;
+    --input: 222 47% 15%;
     --ring: 239 84% 67%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
     --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-background: 222 47% 8%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 239 84% 67%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 222 47% 12%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 222 47% 15%;
+    --sidebar-ring: 239 84% 67%;
   }
 }
 
@@ -85,4 +88,49 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground;
   }
+  
+  /* Garantir que o dark mode seja o padrão */
+  :root {
+    color-scheme: dark;
+  }
+  
+  /* Suave transição entre temas */
+  * {
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+  }
+}
+
+.dark ::-webkit-scrollbar {
+  width: 8px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  @apply bg-secondary;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  @apply bg-border rounded-full;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/50;
+}
+
+/* Melhorias de contraste para dark mode */
+.dark .card {
+  @apply shadow-lg shadow-black/20;
+}
+
+.dark .border-border {
+  border-color: hsl(var(--border) / 0.3);
+}
+
+/* Efeitos de gradiente sutis */
+.dark .bg-gradient-to-br {
+  background-image: linear-gradient(
+    135deg,
+    hsl(var(--background)) 0%,
+    hsl(var(--background) / 0.95) 50%,
+    hsl(var(--card)) 100%
+  );
 }
