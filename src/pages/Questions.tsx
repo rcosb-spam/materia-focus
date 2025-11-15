@@ -5,16 +5,15 @@ import { Button } from '@/components/ui/button';
 import { LogOut, BookOpen, FileText, HelpCircle } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { NavLink } from '@/components/NavLink';
+import PerformanceTab from '@/components/dashboard/PerformanceTab';
 
-const Dashboard = () => {
+const Questions = () => {
   const { user, signOut, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (!loading && !user) {
       navigate('/auth');
-    } else if (!loading && user) {
-      navigate('/pdfs');
     }
   }, [user, loading, navigate]);
 
@@ -63,9 +62,18 @@ const Dashboard = () => {
             Questões
           </NavLink>
         </nav>
+
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-2xl font-bold">Questões</h2>
+            <p className="text-muted-foreground">Acompanhe seu desempenho em questões</p>
+          </div>
+
+          <PerformanceTab />
+        </div>
       </main>
     </div>
   );
 };
 
-export default Dashboard;
+export default Questions;
