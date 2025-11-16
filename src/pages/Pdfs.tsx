@@ -1,19 +1,11 @@
 import { useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { LogOut, BookOpen, FileText, HelpCircle, Home } from 'lucide-react';
+import { LogOut, BookOpen, FileText, HelpCircle } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { NavLink } from '@/components/NavLink';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb';
 import SubjectsTab from '@/components/dashboard/SubjectsTab';
 import CycleTab from '@/components/dashboard/CycleTab';
 
@@ -62,23 +54,6 @@ const Pdfs = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        <Breadcrumb className="mb-4">
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link to="/dashboard" className="flex items-center gap-1">
-                  <Home className="h-4 w-4" />
-                  Início
-                </Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>PDFs</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-
         <nav className="flex gap-4 mb-8">
           <NavLink to="/pdfs">
             <FileText className="h-4 w-4" />
