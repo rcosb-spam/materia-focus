@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, FileSpreadsheet, ChevronDown, Trash2 } from 'lucide-react';
+import { Upload, FileSpreadsheet, ChevronDown, Trash2, CheckSquare, Square } from 'lucide-react';
 import { parseExamSubjectsCSV } from '@/utils/performanceCsvParser';
 
 const ExamSubjectsManager = () => {
@@ -165,6 +165,35 @@ const ExamSubjectsManager = () => {
     },
   });
 
+  const toggleAllMutation = useMutation({
+    mutationFn: async (isRelevant: boolean) => {
+      const allTopicIds = examSubjects?.flatMap(subject => 
+        subject.exam_topics.map((topic: any) => topic.id)
+      ) || [];
+
+      const { error } = await supabase
+        .from('exam_topics')
+        .update({ is_relevant: isRelevant })
+        .in('id', allTopicIds);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['examSubjects'] });
+      toast({
+        title: 'Sucesso!',
+        description: 'Todos os assuntos foram atualizados.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao atualizar',
+        description: error.message,
+      });
+    },
+  });
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -192,13 +221,30 @@ const ExamSubjectsManager = () => {
           <p className="text-muted-foreground">Gerencie as matérias e assuntos relevantes para sua prova</p>
         </div>
         
-        <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Upload className="h-4 w-4 mr-2" />
-              Importar CSV
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => toggleAllMutation.mutate(true)}
+            disabled={toggleAllMutation.isPending || !examSubjects || examSubjects.length === 0}
+          >
+            <CheckSquare className="h-4 w-4 mr-2" />
+            Marcar Todos
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => toggleAllMutation.mutate(false)}
+            disabled={toggleAllMutation.isPending || !examSubjects || examSubjects.length === 0}
+          >
+            <Square className="h-4 w-4 mr-2" />
+            Desmarcar Todos
+          </Button>
+          <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Upload className="h-4 w-4 mr-2" />
+                Importar CSV
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Importar Matérias e Assuntos</DialogTitle>
@@ -237,6 +283,7 @@ const ExamSubjectsManager = () => {
             </div>
           </DialogContent>
         </Dialog>
+      </div>
       </div>
 
       {!examSubjects || examSubjects.length === 0 ? (
