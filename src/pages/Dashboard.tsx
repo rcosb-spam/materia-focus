@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { LogOut, BookOpen, FileText, HelpCircle } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { NavLink } from '@/components/NavLink';
+import DashboardStats from '@/components/dashboard/DashboardStats';
 
 const Dashboard = () => {
   const { user, signOut, loading } = useAuth();
@@ -13,8 +14,6 @@ const Dashboard = () => {
   useEffect(() => {
     if (!loading && !user) {
       navigate('/auth');
-    } else if (!loading && user) {
-      navigate('/pdfs');
     }
   }, [user, loading, navigate]);
 
@@ -68,15 +67,15 @@ const Dashboard = () => {
       </header>
 
       <main className="container mx-auto px-6 py-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">Bem-vindo de volta!</h2>
+        <div className="space-y-8">
+          <div className="text-center">
+            <h2 className="text-3xl font-bold mb-4">Dashboard</h2>
             <p className="text-muted-foreground text-lg">
-              O que você gostaria de estudar hoje?
+              Acompanhe seu progresso em PDFs e Questões
             </p>
           </div>
           
-          <nav className="flex gap-6 justify-center mb-12">
+          <nav className="flex gap-6 justify-center">
             <NavLink 
               to="/pdfs"
               className="flex flex-col items-center gap-3 p-6 rounded-2xl border-2 border-border/50 bg-card hover:border-primary/30 hover:bg-card/80 transition-all duration-300 min-w-[140px] group"
@@ -101,6 +100,8 @@ const Dashboard = () => {
               <p className="text-sm text-muted-foreground text-center">Pratique exercícios</p>
             </NavLink>
           </nav>
+
+          <DashboardStats />
         </div>
       </main>
     </div>
