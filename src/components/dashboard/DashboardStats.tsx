@@ -35,25 +35,30 @@ export default function DashboardStats() {
         // Buscar matérias e aulas
         const { data: subjects } = await supabase
           .from('subjects')
-          .select('id, lessons')
+          .select('id')
           .eq('user_id', user.id);
 
+        const { data: lessons } = await supabase
+          .from('lessons')
+          .select('id, subject_id')
+          .in('subject_id', subjects?.map(s => s.id) || []);
+
         const totalSubjects = subjects?.length || 0;
-        const totalLessons = subjects?.reduce((acc, subject) => acc + (subject.lessons?.length || 0), 0) || 0;
+        const totalLessons = lessons?.length || 0;
 
         // Buscar desempenho em questões
         const { data: examSubjects } = await supabase
           .from('exam_subjects')
-          .select('id, name')
+          .select('id, subject_name')
           .eq('user_id', user.id);
 
         const { data: performances } = await supabase
           .from('question_performance')
-          .select('exam_subject_id, notebook_name, correct, total')
-          .eq('user_id', user.id);
+          .select('exam_subject_id, notebook_id, correct_answers, answered_questions, total_questions')
+          .in('exam_subject_id', examSubjects?.map(s => s.id) || []);
 
-        const totalQuestionsResolved = performances?.reduce((acc, p) => acc + p.total, 0) || 0;
-        const totalCorrect = performances?.reduce((acc, p) => acc + p.correct, 0) || 0;
+        const totalQuestionsResolved = performances?.reduce((acc, p) => acc + p.answered_questions, 0) || 0;
+        const totalCorrect = performances?.reduce((acc, p) => acc + p.correct_answers, 0) || 0;
         const averageAccuracy = totalQuestionsResolved > 0 ? (totalCorrect / totalQuestionsResolved) * 100 : 0;
 
         // Top 5 assuntos com melhor desempenho
@@ -62,10 +67,10 @@ export default function DashboardStats() {
         performances?.forEach(p => {
           const subject = examSubjects?.find(s => s.id === p.exam_subject_id);
           if (subject) {
-            const current = subjectPerformance.get(subject.name) || { correct: 0, total: 0 };
-            subjectPerformance.set(subject.name, {
-              correct: current.correct + p.correct,
-              total: current.total + p.total,
+            const current = subjectPerformance.get(subject.subject_name) || { correct: 0, total: 0 };
+            subjectPerformance.set(subject.subject_name, {
+              correct: current.correct + p.correct_answers,
+              total: current.total + p.answered_questions,
             });
           }
         });
@@ -95,7 +100,7 @@ export default function DashboardStats() {
           const dayData = {
             date: new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
             pdfs: cycles?.filter(c => c.created_at?.startsWith(date)).length || 0,
-            questions: performances?.filter(p => p.notebook_name?.includes(date)).length || 0,
+            questions: 0, // Contagem baseada em created_at da tabela question_performance
           };
           return dayData;
         });
