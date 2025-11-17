@@ -165,16 +165,23 @@ const ExamSubjectsManager = () => {
     },
   });
 
-  const toggleAllMutation = useMutation({
-    mutationFn: async (isRelevant: boolean) => {
-      const allTopicIds = examSubjects?.flatMap(subject => 
-        subject.exam_topics.map((topic: any) => topic.id)
-      ) || [];
+  const toggleAllForSubjectMutation = useMutation({
+    mutationFn: async ({ subjectId, isRelevant }: { subjectId: string; isRelevant: boolean }) => {
+      const { data: topics, error: fetchError } = await supabase
+        .from('exam_topics')
+        .select('id')
+        .eq('exam_subject_id', subjectId);
+
+      if (fetchError) throw fetchError;
+
+      const topicIds = topics?.map(topic => topic.id) || [];
+
+      if (topicIds.length === 0) return;
 
       const { error } = await supabase
         .from('exam_topics')
         .update({ is_relevant: isRelevant })
-        .in('id', allTopicIds);
+        .in('id', topicIds);
 
       if (error) throw error;
     },
@@ -182,7 +189,7 @@ const ExamSubjectsManager = () => {
       queryClient.invalidateQueries({ queryKey: ['examSubjects'] });
       toast({
         title: 'Sucesso!',
-        description: 'Todos os assuntos foram atualizados.',
+        description: 'Assuntos da matéria atualizados.',
       });
     },
     onError: (error: any) => {
@@ -221,30 +228,13 @@ const ExamSubjectsManager = () => {
           <p className="text-muted-foreground">Gerencie as matérias e assuntos relevantes para sua prova</p>
         </div>
         
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => toggleAllMutation.mutate(true)}
-            disabled={toggleAllMutation.isPending || !examSubjects || examSubjects.length === 0}
-          >
-            <CheckSquare className="h-4 w-4 mr-2" />
-            Marcar Todos
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => toggleAllMutation.mutate(false)}
-            disabled={toggleAllMutation.isPending || !examSubjects || examSubjects.length === 0}
-          >
-            <Square className="h-4 w-4 mr-2" />
-            Desmarcar Todos
-          </Button>
-          <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Upload className="h-4 w-4 mr-2" />
-                Importar CSV
-              </Button>
-            </DialogTrigger>
+        <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Upload className="h-4 w-4 mr-2" />
+              Importar CSV
+            </Button>
+          </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Importar Matérias e Assuntos</DialogTitle>
@@ -283,7 +273,6 @@ const ExamSubjectsManager = () => {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
       </div>
 
       {!examSubjects || examSubjects.length === 0 ? (
@@ -329,14 +318,42 @@ const ExamSubjectsManager = () => {
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
-                      <CollapsibleTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <ChevronDown className={`h-4 w-4 transition-transform ${openSubjects[subject.id] === true ? 'rotate-180' : ''}`} />
+                      <div className="flex items-center gap-2">
+                        {/* Botões para marcar/desmarcar todos os assuntos desta matéria */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleAllForSubjectMutation.mutate({ 
+                            subjectId: subject.id, 
+                            isRelevant: true 
+                          })}
+                          disabled={toggleAllForSubjectMutation.isPending}
+                          title="Marcar todos os assuntos desta matéria"
+                        >
+                          <CheckSquare className="h-4 w-4 text-green-600" />
                         </Button>
-                      </CollapsibleTrigger>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleAllForSubjectMutation.mutate({ 
+                            subjectId: subject.id, 
+                            isRelevant: false 
+                          })}
+                          disabled={toggleAllForSubjectMutation.isPending}
+                          title="Desmarcar todos os assuntos desta matéria"
+                        >
+                          <Square className="h-4 w-4 text-gray-500" />
+                        </Button>
+                        <CollapsibleTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <ChevronDown className={`h-4 w-4 transition-transform ${openSubjects[subject.id] === true ? 'rotate-180' : ''}`} />
+                          </Button>
+                        </CollapsibleTrigger>
+                      </div>
                     </div>
                     <CardDescription>
-                      {subject.exam_topics.length} {subject.exam_topics.length === 1 ? 'assunto' : 'assuntos'}
+                      {subject.exam_topics.length} {subject.exam_topics.length === 1 ? 'assunto' : 'assuntos'} • 
+                      {subject.exam_topics.filter((t: any) => t.is_relevant).length} relevantes
                     </CardDescription>
                   </CardHeader>
                   
@@ -357,7 +374,7 @@ const ExamSubjectsManager = () => {
                             />
                             <Label
                               htmlFor={topic.id}
-                              className="flex-1 cursor-pointer"
+                              className={`flex-1 cursor-pointer ${topic.is_relevant ? 'font-medium text-foreground' : 'text-muted-foreground'}`}
                             >
                               {topic.topic_name}
                             </Label>
